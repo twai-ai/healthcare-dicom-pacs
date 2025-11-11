@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+test-code/venv/
+*.egg-info/
+dist/
+build/
+
+# DICOM Data (large files)
+data/raw/
+data/COVID-19/
+*.dcm
+*.tcia
+
+# Output files
+test-code/output/*.png
+test-code/output/*.json
+test-code/output/*.csv
+test-code/output/*.pdf
+test-code/output/*.txt
+
+# Environment
+.env
+.venv
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Node modules (for frontend)
+webapp/frontend/node_modules/
+webapp/frontend/build/
+

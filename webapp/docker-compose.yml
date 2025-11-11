@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: dicom-ai-db
+    environment:
+      POSTGRES_DB: dicom_ai
+      POSTGRES_USER: dicom_user
+      POSTGRES_PASSWORD: dicom_pass_2024
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dicom_user -d dicom_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dicom-network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dicom-ai-backend
+    environment:
+      DATABASE_URL: postgresql://dicom_user:dicom_pass_2024@db:5432/dicom_ai
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ../data:/data
+      - ../test-code/output:/analysis_output
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - dicom-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dicom-ai-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - dicom-network
+
+volumes:
+  postgres_data:
+
+networks:
+  dicom-network:
+    driver: bridge
+
