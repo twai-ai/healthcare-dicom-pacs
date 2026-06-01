@@ -1,30 +1,29 @@
 # Build stage
-FROM node:18-alpine as build
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+ARG REACT_APP_API_URL=/api
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Install dependencies
+COPY package*.json ./
 RUN npm install
 
-# Copy source code
 COPY . .
-
-# Build the app
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Copy built app to nginx
-COPY --from=build /app/build /usr/share/nginx/html
+RUN apk add --no-cache gettext
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+ENV BACKEND_URL=http://backend:8000
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
-
+ENTRYPOINT ["/docker-entrypoint.sh"]

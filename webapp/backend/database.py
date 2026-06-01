@@ -7,10 +7,19 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
+def _normalize_database_url(url: str) -> str:
+    """Railway and others often provide postgres://; SQLAlchemy needs postgresql://."""
+    if url.startswith("postgres://"):
+        return "postgresql://" + url[len("postgres://") :]
+    return url
+
+
 # Database URL from environment variable
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://dicom_user:dicom_pass_2024@localhost:5432/dicom_ai"
+DATABASE_URL = _normalize_database_url(
+    os.getenv(
+        "DATABASE_URL",
+        "postgresql://dicom_user:dicom_pass_2024@localhost:5432/dicom_ai",
+    )
 )
 
 # Create SQLAlchemy engine

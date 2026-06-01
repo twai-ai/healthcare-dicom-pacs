@@ -1,0 +1,10 @@
+# Railway config — set service "Root Directory" to webapp/backend
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "./start.sh"
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"

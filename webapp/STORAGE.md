@@ -16,6 +16,8 @@ See `webapp/.env.example`.
 
 ## Railway / production
 
+Full step-by-step: **[RAILWAY.md](./RAILWAY.md)**.
+
 1. Create PostgreSQL + S3 bucket (R2 recommended for cost).
 2. Set on the **backend** service:
 
