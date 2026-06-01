@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { User, Calendar, Activity } from 'lucide-react';
+import { User, Calendar, Activity, Image as ImageIcon } from 'lucide-react';
 import { apiService } from '../api';
 
 function Patients() {
@@ -31,7 +31,7 @@ function Patients() {
     <div>
       <div className="page-header">
         <h1>Patients</h1>
-        <p>View all patients and their medical imaging data</p>
+        <p>View all patients and their chest imaging scans</p>
       </div>
 
       <div className="card">
@@ -41,64 +41,65 @@ function Patients() {
         </div>
 
         {patients.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-500)' }}>
-            <User size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+          <div className="empty-state">
+            <User size={48} />
             <p>No patients found</p>
-            <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-              Run the data ingestion script to populate the database
-            </p>
+            <p className="empty-state-hint">Run data ingestion to populate the database</p>
           </div>
         ) : (
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Patient ID</th>
-                  <th>Name</th>
-                  <th>Age</th>
-                  <th>Sex</th>
-                  <th>Date Added</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {patients.map(patient => (
-                  <tr key={patient.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <User size={16} color="var(--gray-400)" />
-                        <span style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                          {patient.patient_id}
-                        </span>
-                      </div>
-                    </td>
-                    <td>{patient.patient_name || 'N/A'}</td>
-                    <td>{patient.patient_age ? `${patient.patient_age}Y` : 'N/A'}</td>
-                    <td>
-                      <span className="badge info">{patient.patient_sex || 'N/A'}</span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Calendar size={14} color="var(--gray-400)" />
-                        <span style={{ fontSize: '0.875rem' }}>
-                          {new Date(patient.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <Link 
-                        to={`/patients/${patient.patient_id}`}
-                        className="btn btn-primary"
-                        style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
-                      >
-                        <Activity size={14} />
-                        View Details
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="patient-card-grid">
+            {patients.map((patient) => (
+              <article key={patient.id} className="patient-card">
+                <div className="patient-card-scan">
+                  {patient.scan_thumbnail ? (
+                    <img
+                      src={patient.scan_thumbnail}
+                      alt={`Scan for ${patient.patient_id}`}
+                      className="patient-card-thumbnail"
+                    />
+                  ) : (
+                    <div className="patient-card-scan-placeholder">
+                      <ImageIcon size={32} />
+                      <span>No preview</span>
+                    </div>
+                  )}
+                  {patient.modality && (
+                    <span className="patient-card-modality">{patient.modality}</span>
+                  )}
+                </div>
+                <div className="patient-card-body">
+                  <h3 className="patient-card-id">{patient.patient_id}</h3>
+                  {patient.study_description && (
+                    <p className="patient-card-study">{patient.study_description}</p>
+                  )}
+                  <div className="patient-card-meta">
+                    <span>{patient.patient_age ? `${patient.patient_age}Y` : '—'}</span>
+                    <span>{patient.patient_sex || '—'}</span>
+                    {patient.covid_score != null && (
+                      <span className={`badge ${
+                        patient.covid_score <= 2 ? 'success' :
+                        patient.covid_score === 3 ? 'warning' : 'danger'
+                      }`}>
+                        COVID {patient.covid_score}/5
+                      </span>
+                    )}
+                  </div>
+                  <div className="patient-card-footer">
+                    <span className="patient-card-date">
+                      <Calendar size={14} />
+                      {new Date(patient.created_at).toLocaleDateString()}
+                    </span>
+                    <Link
+                      to={`/patients/${patient.patient_id}`}
+                      className="btn btn-primary btn-sm"
+                    >
+                      <Activity size={14} />
+                      View scan & details
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </div>
@@ -107,4 +108,3 @@ function Patients() {
 }
 
 export default Patients;
-

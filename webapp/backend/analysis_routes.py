@@ -14,7 +14,7 @@ import shutil
 from database import SessionLocal
 import models
 from analysis_engine import DICOMAnalyzer
-from image_processor import ImageProcessor
+from study_images import upsert_study_images
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
@@ -124,17 +124,8 @@ async def upload_dicom(
             )
             db.add(diag_record)
             
-            # Save image statistics with visualizations
-            images = result.get('images', {})
-            if images.get('has_images'):
-                stats_record = db.query(models.ImageStatistics).filter(
-                    models.ImageStatistics.study_id == study.id
-                ).first()
-                
-                if stats_record:
-                    stats_record.main_image_data = images.get('main_image')
-                    stats_record.histogram_image_data = images.get('histogram')
-                    stats_record.windowed_image_data = images.get('windowed_image')
+            # Save scan previews and intensity statistics
+            upsert_study_images(db, study, tmp_path)
             
             # Save AI analyses
             ai_results = result.get('ai_analysis', {}).get('models', {})

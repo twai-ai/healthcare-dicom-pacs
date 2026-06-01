@@ -16,6 +16,7 @@ sys.path.append('/app')
 
 from database import SessionLocal
 import models
+from study_images import sync_all_study_images
 
 # Data sources
 METADATA = Path("/showcase_data/dicom_metadata.csv")
@@ -294,6 +295,7 @@ def main():
         load_ai_analyses(db)
         load_diagnostics(db)
         load_bias_and_metrics(db)
+        sync_all_study_images(db, METADATA)
         
         # Summary
         print("="*70)

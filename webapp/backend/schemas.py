@@ -23,6 +23,14 @@ class PatientOut(PatientBase):
     class Config:
         from_attributes = True
 
+
+class PatientListItem(PatientOut):
+    """Patient row with scan preview for list views."""
+    scan_thumbnail: Optional[str] = None
+    modality: Optional[str] = None
+    study_description: Optional[str] = None
+    covid_score: Optional[int] = None
+
 # ============================================================================
 # STUDY SCHEMAS
 # ============================================================================
@@ -186,6 +194,7 @@ class PatientDetail(BaseModel):
     studies: List[StudyOut]
     ai_analyses: List[AIAnalysisOut]
     diagnostic_analysis: Optional[DiagnosticAnalysisOut]
+    image_statistics: Optional[ImageStatisticsOut] = None
     
     class Config:
         from_attributes = True

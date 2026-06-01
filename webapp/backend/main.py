@@ -112,11 +112,48 @@ def get_platform_info(db: Session = Depends(get_db)):
 # PATIENTS
 # ============================================================================
 
-@app.get("/api/patients", response_model=List[schemas.PatientOut])
+@app.get("/api/patients", response_model=List[schemas.PatientListItem])
 def get_patients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """Get list of all patients"""
+    """Get list of all patients with scan thumbnails when available"""
     patients = db.query(models.Patient).offset(skip).limit(limit).all()
-    return patients
+    results = []
+
+    for patient in patients:
+        study = (
+            db.query(models.Study)
+            .filter(models.Study.patient_id == patient.patient_id)
+            .order_by(models.Study.id)
+            .first()
+        )
+        stats = None
+        if study:
+            stats = (
+                db.query(models.ImageStatistics)
+                .filter(models.ImageStatistics.study_id == study.id)
+                .first()
+            )
+        diagnostic = (
+            db.query(models.DiagnosticAnalysis)
+            .filter(models.DiagnosticAnalysis.patient_id == patient.patient_id)
+            .first()
+        )
+
+        results.append(
+            schemas.PatientListItem(
+                id=patient.id,
+                patient_id=patient.patient_id,
+                patient_name=patient.patient_name,
+                patient_age=patient.patient_age,
+                patient_sex=patient.patient_sex,
+                created_at=patient.created_at,
+                scan_thumbnail=stats.main_image_data if stats else None,
+                modality=study.modality if study else None,
+                study_description=study.study_description if study else None,
+                covid_score=diagnostic.covid_score if diagnostic else None,
+            )
+        )
+
+    return results
 
 @app.get("/api/patients/{patient_id}", response_model=schemas.PatientDetail)
 def get_patient(patient_id: str, db: Session = Depends(get_db)):
@@ -140,12 +177,21 @@ def get_patient(patient_id: str, db: Session = Depends(get_db)):
     diagnostic = db.query(models.DiagnosticAnalysis).filter(
         models.DiagnosticAnalysis.patient_id == patient_id
     ).first()
+
+    image_statistics = None
+    if studies:
+        image_statistics = (
+            db.query(models.ImageStatistics)
+            .filter(models.ImageStatistics.study_id == studies[0].id)
+            .first()
+        )
     
     return {
         "patient": patient,
         "studies": studies,
         "ai_analyses": ai_analyses,
-        "diagnostic_analysis": diagnostic
+        "diagnostic_analysis": diagnostic,
+        "image_statistics": image_statistics,
     }
 
 # ============================================================================

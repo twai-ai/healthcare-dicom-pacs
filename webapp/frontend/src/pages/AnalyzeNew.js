@@ -17,7 +17,7 @@ function AnalyzeNew() {
 
   const loadEngineStatus = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/analysis/status');
+      const response = await axios.get('/api/analysis/status');
       setEngineStatus(response.data);
     } catch (error) {
       console.error('Error loading engine status:', error);
@@ -49,7 +49,7 @@ function AnalyzeNew() {
       formData.append('file', selectedFile);
 
       const response = await axios.post(
-        'http://localhost:8000/api/analysis/upload',
+        '/api/analysis/upload',
         formData,
         {
           headers: {
