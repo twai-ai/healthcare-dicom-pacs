@@ -16,10 +16,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from database import SessionLocal, engine, Base
 import models
-
-# Paths to data
-DATA_DIR = Path("/data/raw")
-OUTPUT_DIR = Path("/analysis_output")
+from object_storage import get_storage, normalize_dicom_key, open_data_file
 
 def load_json_file(filepath):
     """Load JSON file safely"""
@@ -30,6 +27,14 @@ def load_json_file(filepath):
         print(f"Error loading {filepath}: {e}")
         return None
 
+
+def _try_load_analysis_json(filename: str):
+    try:
+        with open_data_file(filename) as path:
+            return load_json_file(path)
+    except FileNotFoundError:
+        return None
+
 def ingest_patients_and_studies(db: Session):
     """Ingest patient and study data from DICOM metadata CSV"""
     
@@ -37,13 +42,12 @@ def ingest_patients_and_studies(db: Session):
     print("INGESTING PATIENTS AND STUDIES")
     print("="*70)
     
-    metadata_csv = OUTPUT_DIR / "dicom_metadata.csv"
-    
-    if not metadata_csv.exists():
-        print(f"⚠️  Metadata CSV not found: {metadata_csv}")
+    try:
+        with open_data_file("dicom_metadata.csv") as metadata_csv:
+            df = pd.read_csv(metadata_csv)
+    except FileNotFoundError:
+        print("⚠️  Metadata CSV not found (showcase/ or analysis/ in S3 or local dirs)")
         return
-    
-    df = pd.read_csv(metadata_csv)
     print(f"✓ Loaded {len(df)} records from metadata CSV")
     
     patients_added = 0
@@ -112,23 +116,17 @@ def ingest_ai_analyses(db: Session):
     print("INGESTING AI ANALYSES")
     print("="*70)
     
-    # Look for multi-model analysis files
-    gemini_file = OUTPUT_DIR / "multi_model_gemini_analyses.json"
-    groq_file = OUTPUT_DIR / "multi_model_groq_analyses.json"
-    ensemble_file = OUTPUT_DIR / "multi_model_ensemble_analyses.json"
-    
     analyses_added = 0
-    
-    for file, model_name in [
-        (gemini_file, "Gemini-2.0-Flash"),
-        (groq_file, "Groq-LLaMA-3.3-70B"),
-        (ensemble_file, "Multi-Model-Ensemble")
+
+    for filename, model_name in [
+        ("multi_model_gemini_analyses.json", "Gemini-2.0-Flash"),
+        ("multi_model_groq_analyses.json", "Groq-LLaMA-3.3-70B"),
+        ("multi_model_ensemble_analyses.json", "Multi-Model-Ensemble"),
     ]:
-        if not file.exists():
-            print(f"⚠️  File not found: {file}")
+        data = _try_load_analysis_json(filename)
+        if not data:
+            print(f"⚠️  File not found: {filename}")
             continue
-        
-        data = load_json_file(file)
         if not data:
             continue
         
@@ -173,14 +171,9 @@ def ingest_diagnostic_analyses(db: Session):
     print("INGESTING DIAGNOSTIC ANALYSES")
     print("="*70)
     
-    diagnostic_file = OUTPUT_DIR / "diagnostic_analysis_results.json"
-    
-    if not diagnostic_file.exists():
-        print(f"⚠️  File not found: {diagnostic_file}")
-        return
-    
-    data = load_json_file(diagnostic_file)
+    data = _try_load_analysis_json("diagnostic_analysis_results.json")
     if not data:
+        print("⚠️  File not found: diagnostic_analysis_results.json")
         return
     
     analyses_added = 0
@@ -221,13 +214,10 @@ def ingest_protocol_analysis(db: Session):
     print("INGESTING PROTOCOL ANALYSIS")
     print("="*70)
     
-    protocol_file = OUTPUT_DIR / "protocol_analysis.json"
-    
-    if not protocol_file.exists():
-        print(f"⚠️  File not found: {protocol_file}")
+    data = _try_load_analysis_json("protocol_analysis.json")
+    if not data:
+        print("⚠️  File not found: protocol_analysis.json")
         return
-    
-    data = load_json_file(protocol_file)
     if not data:
         return
     
@@ -261,13 +251,10 @@ def ingest_bias_analysis(db: Session):
     print("INGESTING BIAS ANALYSIS")
     print("="*70)
     
-    bias_file = OUTPUT_DIR / "bias_analysis.json"
-    
-    if not bias_file.exists():
-        print(f"⚠️  File not found: {bias_file}")
+    data = _try_load_analysis_json("bias_analysis.json")
+    if not data:
+        print("⚠️  File not found: bias_analysis.json")
         return
-    
-    data = load_json_file(bias_file)
     if not data:
         return
     
@@ -299,13 +286,10 @@ def ingest_quality_metrics(db: Session):
     print("INGESTING QUALITY METRICS")
     print("="*70)
     
-    validation_file = OUTPUT_DIR / "dicom_validation_report.json"
-    
-    if not validation_file.exists():
-        print(f"⚠️  File not found: {validation_file}")
+    data = _try_load_analysis_json("dicom_validation_report.json")
+    if not data:
+        print("⚠️  File not found: dicom_validation_report.json")
         return
-    
-    data = load_json_file(validation_file)
     if not data:
         return
     
@@ -336,8 +320,6 @@ def ingest_image_statistics(db: Session):
     print("\n" + "="*70)
     print("INGESTING IMAGE STATISTICS")
     print("="*70)
-    
-    stats_file = OUTPUT_DIR / "image_statistics.json"
     
     # If no stats file, generate basic stats
     studies = db.query(models.Study).all()
@@ -409,8 +391,9 @@ def main():
     print("\n" + "="*70)
     print("DICOM-AI DATA INGESTION")
     print("="*70)
-    print(f"\nData directory: {DATA_DIR}")
-    print(f"Output directory: {OUTPUT_DIR}")
+    from object_storage import get_storage_backend
+
+    print(f"\nStorage backend: {get_storage_backend()}")
     
     # Create database tables
     Base.metadata.create_all(bind=engine)

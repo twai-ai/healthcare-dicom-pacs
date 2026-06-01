@@ -17,12 +17,19 @@ sys.path.append('/app')
 from database import SessionLocal
 import models
 from study_images import sync_all_study_images
+from object_storage import get_storage, normalize_dicom_key, open_data_file
+import json as json_lib
 
-# Data sources
-METADATA = Path("/showcase_data/dicom_metadata.csv")
-AI_FILE = Path("/showcase_data/multimodel_ai_analysis_complete.json")
-DIAG_FILE = Path("/showcase_data/diagnostic_assessments_complete.json")
-BIAS_FILE = Path("/showcase_data/bias_analysis_report.json")
+
+def _read_showcase_csv():
+    with open_data_file("dicom_metadata.csv") as path:
+        return pd.read_csv(path)
+
+
+def _read_showcase_json(filename: str):
+    with open_data_file(filename) as path:
+        with open(path, "r") as f:
+            return json_lib.load(f)
 
 def clear_all_data(db):
     """Clear existing data"""
@@ -45,7 +52,7 @@ def load_patients(db):
     print("LOADING PATIENTS & STUDIES")
     print("="*70)
     
-    df = pd.read_csv(METADATA)
+    df = _read_showcase_csv()
     
     for _, row in df.iterrows():
         pid = row['patient_id']
@@ -74,12 +81,18 @@ def load_patients(db):
         db.add(study)
         db.flush()
         
+        study_uid = f"study-{pid}-{row['study_date']}"
+        storage = get_storage()
+        image_key = storage.import_legacy_dicom(
+            str(row.get("file_path", "")), pid, study_uid
+        ) or normalize_dicom_key(str(row.get("file_path", "")))
+
         # Add DICOM metadata
         dicom_meta = models.DICOMMetadata(
             study_id=study.id,
             series_instance_uid=f"series-{pid}",
             sop_instance_uid=f"sop-{pid}-{row['file_name']}",
-            image_path=row['file_path'],
+            image_path=image_key,
             rows=int(row['image_size'].split('x')[1]) if 'x' in str(row['image_size']) else 0,
             columns=int(row['image_size'].split('x')[0]) if 'x' in str(row['image_size']) else 0,
             pixel_spacing=row.get('pixel_spacing', 'Unknown'),
@@ -134,7 +147,7 @@ def load_ai_analyses(db):
     print("LOADING AI ANALYSES")
     print("="*70)
     
-    ai_data = json.load(open(AI_FILE))
+    ai_data = _read_showcase_json("multimodel_ai_analysis_complete.json")
     count = 0
     
     for item in ai_data:
@@ -191,7 +204,7 @@ def load_diagnostics(db):
     print("LOADING DIAGNOSTIC ANALYSES")
     print("="*70)
     
-    diag_data = json.load(open(DIAG_FILE))
+    diag_data = _read_showcase_json("diagnostic_assessments_complete.json")
     count = 0
     
     for item in diag_data:
@@ -239,7 +252,7 @@ def load_bias_and_metrics(db):
     print("LOADING BIAS ANALYSIS")
     print("="*70)
     
-    bias_data = json.load(open(BIAS_FILE))
+    bias_data = _read_showcase_json("bias_analysis_report.json")
     
     # Get actual counts
     total_patients = db.query(models.Patient).count()
@@ -295,7 +308,7 @@ def main():
         load_ai_analyses(db)
         load_diagnostics(db)
         load_bias_and_metrics(db)
-        sync_all_study_images(db, METADATA)
+        sync_all_study_images(db)
         
         # Summary
         print("="*70)

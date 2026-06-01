@@ -15,12 +15,18 @@ sys.path.append(str(Path(__file__).parent))
 
 from database import SessionLocal, engine, Base
 import models
+from object_storage import open_data_file
 
-# Paths to existing analysis (inside Docker container)
-METADATA_FILE = Path("/showcase_data/dicom_metadata.csv")
-AI_ANALYSIS_FILE = Path("/showcase_data/multimodel_ai_analysis_complete.json")
-DIAGNOSTIC_FILE = Path("/showcase_data/diagnostic_assessments_complete.json")
-BIAS_FILE = Path("/showcase_data/bias_analysis_report.json")
+
+def _read_showcase_csv():
+    with open_data_file("dicom_metadata.csv") as path:
+        return pd.read_csv(path)
+
+
+def _read_showcase_json(name: str):
+    with open_data_file(name) as path:
+        with open(path) as f:
+            return json.load(f)
 
 def load_patients_and_studies(db: Session):
     """Load 2 COVID-19 patients with studies"""
@@ -29,11 +35,11 @@ def load_patients_and_studies(db: Session):
     print("LOADING PATIENTS AND STUDIES")
     print("="*70)
     
-    if not METADATA_FILE.exists():
-        print(f"✗ File not found: {METADATA_FILE}")
+    try:
+        df = _read_showcase_csv()
+    except FileNotFoundError:
+        print("✗ File not found: dicom_metadata.csv (showcase/ local or S3)")
         return 0, 0
-    
-    df = pd.read_csv(METADATA_FILE)
     print(f"✓ Loaded {len(df)} records from metadata")
     
     patients_added = 0
@@ -113,12 +119,11 @@ def load_ai_analyses(db: Session):
     print("LOADING AI ANALYSES")
     print("="*70)
     
-    if not AI_ANALYSIS_FILE.exists():
-        print(f"✗ File not found: {AI_ANALYSIS_FILE}")
+    try:
+        data = _read_showcase_json("multimodel_ai_analysis_complete.json")
+    except FileNotFoundError:
+        print("✗ File not found: multimodel_ai_analysis_complete.json")
         return 0
-    
-    with open(AI_ANALYSIS_FILE, 'r') as f:
-        data = json.load(f)  # This is a list
     
     analyses_added = 0
     
@@ -195,12 +200,11 @@ def load_diagnostic_analyses(db: Session):
     print("LOADING DIAGNOSTIC ANALYSES")
     print("="*70)
     
-    if not DIAGNOSTIC_FILE.exists():
-        print(f"✗ File not found: {DIAGNOSTIC_FILE}")
+    try:
+        data = _read_showcase_json("diagnostic_assessments_complete.json")
+    except FileNotFoundError:
+        print("✗ File not found: diagnostic_assessments_complete.json")
         return 0
-    
-    with open(DIAGNOSTIC_FILE, 'r') as f:
-        data = json.load(f)  # This is a list
     
     analyses_added = 0
     
@@ -253,12 +257,11 @@ def load_bias_analysis(db: Session):
     print("LOADING BIAS ANALYSIS")
     print("="*70)
     
-    if not BIAS_FILE.exists():
-        print(f"✗ File not found: {BIAS_FILE}")
+    try:
+        data = _read_showcase_json("bias_analysis_report.json")
+    except FileNotFoundError:
+        print("✗ File not found: bias_analysis_report.json")
         return 0
-    
-    with open(BIAS_FILE, 'r') as f:
-        data = json.load(f)
     
     total_patients = db.query(models.Patient).count()
     total_studies = db.query(models.Study).count()

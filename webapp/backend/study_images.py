@@ -1,5 +1,6 @@
 """
 Find DICOM files for patients and attach PNG previews to ImageStatistics.
+Uses object storage (S3/R2) or local filesystem via object_storage module.
 """
 
 from pathlib import Path
@@ -11,50 +12,62 @@ from sqlalchemy.orm import Session
 
 import models
 from image_processor import ImageProcessor
-
-DATA_ROOT = Path("/data/raw")
-
-
-def resolve_dicom_path(file_path: Optional[str]) -> Optional[Path]:
-    """Map host or container paths to an existing DICOM file."""
-    if not file_path or str(file_path).strip() in ("", "Unknown", "nan"):
-        return None
-
-    path_str = str(file_path).strip()
-    candidates = [Path(path_str)]
-
-    if "/data/raw/" in path_str:
-        candidates.insert(0, DATA_ROOT / path_str.split("/data/raw/", 1)[1])
-
-    markers = ("/DICOM-AI/data/raw/", "data/raw/")
-    for marker in markers:
-        if marker in path_str:
-            candidates.insert(0, DATA_ROOT / path_str.split(marker, 1)[1])
-
-    for candidate in candidates:
-        if candidate.exists() and candidate.suffix.lower() == ".dcm":
-            return candidate
-
-    return None
+from object_storage import (
+    DICOM_PREFIX,
+    LOCAL_ROOT,
+    find_local_dicom_path,
+    get_storage,
+    normalize_dicom_key,
+    open_data_file,
+)
 
 
-def find_dicom_for_patient(
-    patient_id: str, hint_path: Optional[str] = None
-) -> Optional[Path]:
-    """Locate a representative DICOM for a patient."""
-    resolved = resolve_dicom_path(hint_path)
-    if resolved:
-        return resolved
+def find_dicom_key_for_patient(
+    db: Session,
+    patient_id: str,
+    hint_path: Optional[str] = None,
+) -> Optional[str]:
+    """Resolve canonical object key for a patient's DICOM."""
+    storage = get_storage()
 
-    patient_dir = DATA_ROOT / "COVID-19-AR" / patient_id
-    if patient_dir.is_dir():
-        for dcm in sorted(patient_dir.rglob("*.dcm")):
-            return dcm
+    if hint_path:
+        key = normalize_dicom_key(hint_path)
+        if key and storage.exists(key):
+            return key
+        imported = storage.import_legacy_dicom(
+            hint_path, patient_id, study_uid=patient_id
+        )
+        if imported and storage.exists(imported):
+            return imported
 
-    if DATA_ROOT.is_dir():
-        for dcm in DATA_ROOT.rglob("*.dcm"):
-            if patient_id in dcm.parts:
-                return dcm
+    meta = (
+        db.query(models.DICOMMetadata)
+        .join(models.Study)
+        .filter(models.Study.patient_id == patient_id)
+        .filter(models.DICOMMetadata.image_path.isnot(None))
+        .first()
+    )
+    if meta and meta.image_path:
+        key = normalize_dicom_key(meta.image_path)
+        if key and storage.exists(key):
+            return key
+
+    prefix = f"{DICOM_PREFIX}{patient_id}/"
+    keys = storage.list_keys(prefix)
+    if keys:
+        return sorted(keys)[0]
+
+    if not storage.use_s3:
+        local = find_local_dicom_path(patient_id, hint_path)
+        if local:
+            key = normalize_dicom_key(str(local))
+            if key and storage.exists(key):
+                return key
+            try:
+                rel = local.resolve().relative_to(LOCAL_ROOT.resolve())
+                return f"{DICOM_PREFIX}{rel.as_posix()}"
+            except ValueError:
+                return normalize_dicom_key(str(local))
 
     return None
 
@@ -106,30 +119,43 @@ def sync_all_study_images(db: Session, metadata_csv: Optional[Path] = None) -> i
     path_hints = {}
     if metadata_csv and metadata_csv.exists():
         df = pd.read_csv(metadata_csv)
+    else:
+        try:
+            with open_data_file("dicom_metadata.csv") as csv_path:
+                df = pd.read_csv(csv_path)
+        except FileNotFoundError:
+            df = None
+
+    if df is not None:
         for _, row in df.iterrows():
-            pid = row.get("patient_id")
+            pid = row.get("patient_id") or row.get("PatientID")
             fp = row.get("file_path")
             if pid and fp and pid not in path_hints:
                 path_hints[str(pid)] = str(fp)
 
     studies = db.query(models.Study).all()
     synced = 0
+    storage = get_storage()
 
     print("\n" + "=" * 70)
     print("SYNCING SCAN IMAGES")
     print("=" * 70)
 
     for study in studies:
-        dicom_path = find_dicom_for_patient(
-            study.patient_id, path_hints.get(study.patient_id)
+        dicom_key = find_dicom_key_for_patient(
+            db, study.patient_id, path_hints.get(study.patient_id)
         )
-        if not dicom_path:
+        if not dicom_key:
             print(f"  ⚠ No DICOM found for {study.patient_id}")
             continue
 
-        if upsert_study_images(db, study, dicom_path):
-            synced += 1
-            print(f"  ✓ {study.patient_id} ← {dicom_path.name}")
+        try:
+            with storage.open_local_copy(dicom_key) as dicom_path:
+                if upsert_study_images(db, study, dicom_path):
+                    synced += 1
+                    print(f"  ✓ {study.patient_id} ← {dicom_key}")
+        except FileNotFoundError:
+            print(f"  ⚠ Missing object for {study.patient_id}: {dicom_key}")
 
     db.commit()
     with_images = (
@@ -139,3 +165,4 @@ def sync_all_study_images(db: Session, metadata_csv: Optional[Path] = None) -> i
     )
     print(f"\n✅ Synced {synced} studies ({with_images} with images in DB)\n")
     return synced
+

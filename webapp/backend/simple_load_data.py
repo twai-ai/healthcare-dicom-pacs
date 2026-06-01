@@ -12,12 +12,18 @@ sys.path.append('/app')
 
 from database import SessionLocal
 import models
+from object_storage import open_data_file
 
-# Data files
-METADATA = Path("/showcase_data/dicom_metadata.csv")
-AI_FILE = Path("/showcase_data/multimodel_ai_analysis_complete.json")
-DIAG_FILE = Path("/showcase_data/diagnostic_assessments_complete.json")
-BIAS_FILE = Path("/showcase_data/bias_analysis_report.json")
+
+def _read_csv():
+    with open_data_file("dicom_metadata.csv") as path:
+        return pd.read_csv(path)
+
+
+def _read_json(name):
+    with open_data_file(name) as path:
+        with open(path) as f:
+            return json.load(f)
 
 def main():
     db = SessionLocal()
@@ -26,7 +32,7 @@ def main():
     
     # Step 1: Load patients from CSV
     print("Step 1: Loading patients...")
-    df = pd.read_csv(METADATA)
+    df = _read_csv()
     print(f"  Columns in CSV: {list(df.columns)}")
     
     for _, row in df.iterrows():
@@ -59,7 +65,7 @@ def main():
     
     # Step 2: Load AI analyses
     print("Step 2: Loading AI analyses...")
-    ai_data = json.load(open(AI_FILE))
+    ai_data = _read_json("multimodel_ai_analysis_complete.json")
     count = 0
     
     for item in ai_data:
@@ -110,7 +116,7 @@ def main():
     
     # Step 3: Load diagnostic analyses
     print("Step 3: Loading diagnostic analyses...")
-    diag_data = json.load(open(DIAG_FILE))
+    diag_data = _read_json("diagnostic_assessments_complete.json")
     count = 0
     
     for item in diag_data:
@@ -137,7 +143,7 @@ def main():
     
     # Step 4: Load bias analysis
     print("Step 4: Loading bias analysis...")
-    bias_data = json.load(open(BIAS_FILE))
+    bias_data = _read_json("bias_analysis_report.json")
     
     db.add(models.BiasAnalysis(
         analysis_date=date.today(),

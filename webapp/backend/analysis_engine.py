@@ -73,6 +73,7 @@ class DICOMAnalyzer:
                 'manufacturer_model': str(ds.get('ManufacturerModelName', '')),
                 'study_instance_uid': str(ds.get('StudyInstanceUID', '')),
                 'series_instance_uid': str(ds.get('SeriesInstanceUID', '')),
+                'sop_instance_uid': str(ds.get('SOPInstanceUID', '')),
                 'rows': int(ds.get('Rows', 0)),
                 'columns': int(ds.get('Columns', 0)),
             }
