@@ -16,10 +16,10 @@ See `webapp/.env.example`.
 
 ## Railway / production
 
-Full step-by-step: **[RAILWAY.md](./RAILWAY.md)**.
+Full step-by-step: **[RAILWAY.md](./RAILWAY.md)** (PostgreSQL + **Railway Storage Bucket**).
 
-1. Create PostgreSQL + S3 bucket (R2 recommended for cost).
-2. Set on the **backend** service:
+1. Create PostgreSQL + **Railway Bucket** on the project canvas; reference their variables on the backend.
+2. Set on the **backend** service (or use Railway variable references from the bucket):
 
    ```env
    S3_BUCKET=your-bucket

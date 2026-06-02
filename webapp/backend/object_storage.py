@@ -25,8 +25,10 @@ ANALYSIS_OUTPUT_LOCAL = Path(os.getenv("ANALYSIS_OUTPUT_DIR", "/analysis_output"
 
 
 def storage_enabled() -> bool:
-    """True when S3_BUCKET is configured."""
-    return bool(os.getenv("S3_BUCKET", "").strip())
+    """True when a bucket name is configured (S3_* or Railway BUCKET / AWS_S3_BUCKET_NAME)."""
+    from railway_env import resolve_s3_bucket
+
+    return bool(resolve_s3_bucket())
 
 
 def get_storage_backend() -> str:
@@ -90,10 +92,24 @@ def build_dicom_key(patient_id: str, study_instance_uid: str, filename: str) -> 
 
 class ObjectStorage:
     def __init__(self) -> None:
+        from railway_env import (
+            is_railway_bucket,
+            resolve_aws_access_key,
+            resolve_aws_secret_key,
+            resolve_s3_bucket,
+            resolve_s3_endpoint,
+            resolve_s3_region,
+            s3_addressing_style,
+        )
+
         self._client = None
-        self.bucket = os.getenv("S3_BUCKET", "").strip()
-        self.region = os.getenv("S3_REGION", os.getenv("AWS_DEFAULT_REGION", "auto"))
-        self.endpoint_url = os.getenv("S3_ENDPOINT_URL") or None
+        self.bucket = resolve_s3_bucket()
+        self.region = resolve_s3_region()
+        self.endpoint_url = resolve_s3_endpoint()
+        self._access_key = resolve_aws_access_key()
+        self._secret_key = resolve_aws_secret_key()
+        self._addressing_style = s3_addressing_style()
+        self._is_railway = is_railway_bucket(self.endpoint_url)
 
     @property
     def use_s3(self) -> bool:
@@ -102,14 +118,20 @@ class ObjectStorage:
     def _get_client(self):
         if self._client is None:
             import boto3
+            from botocore.config import Config
 
             session = boto3.session.Session()
+            config = Config(
+                signature_version="s3v4",
+                s3={"addressing_style": self._addressing_style},
+            )
             self._client = session.client(
                 "s3",
                 region_name=self.region,
                 endpoint_url=self.endpoint_url,
-                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                aws_access_key_id=self._access_key,
+                aws_secret_access_key=self._secret_key,
+                config=config,
             )
         return self._client
 

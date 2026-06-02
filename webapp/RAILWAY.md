@@ -1,127 +1,113 @@
 # Deploying DICOM-AI on Railway
 
-Three services: **PostgreSQL**, **backend**, **frontend**. Object storage (R2/S3) is external — see [STORAGE.md](./STORAGE.md).
+You need **four** resources on the project canvas:
 
-## 1. Create project & services
+1. **PostgreSQL** (database)  
+2. **Bucket** (Storage — S3-compatible)  
+3. **backend** (GitHub service)  
+4. **frontend** (GitHub service)
 
-1. [Railway](https://railway.app) → **New Project** → **Deploy from GitHub** → `healthcare-dicom-pacs`.
-2. Add **PostgreSQL** (plugin).
-3. Add two more services from the same repo:
+## Important: repository root
 
-| Service   | Root directory      | Config file              |
-|-----------|---------------------|--------------------------|
-| `backend` | `webapp/backend`    | `webapp/backend/railway.toml` |
-| `frontend`| `webapp/frontend`   | `webapp/frontend/railway.toml` |
+For both GitHub services, set **Root Directory** to the **repository root** (`/`), not `webapp/backend` or `webapp/frontend`.
 
-Rename services in Railway to `backend` and `frontend` if you use private networking variables below.
+Railway reads `railway.toml` inside each service folder via `dockerfilePath` pointing at `webapp/backend/Dockerfile` and `webapp/frontend/Dockerfile`.
 
-## 2. Backend
+## 1. PostgreSQL → backend
 
-### Variables
+1. Create **PostgreSQL** on the canvas.  
+2. Open the **backend** service → **Variables**.  
+3. **Add variable reference** → select Postgres → `DATABASE_URL`.
 
-Link Postgres `DATABASE_URL` (reference from PostgreSQL service).
+The app normalizes `postgres://` to `postgresql://` automatically.
 
-| Variable | Required | Notes |
-|----------|----------|--------|
-| `DATABASE_URL` | Yes | Auto from Postgres; `postgres://` is normalized to `postgresql://` |
-| `S3_BUCKET` | Yes (prod) | Omit only for empty demo without durable DICOM |
-| `S3_ENDPOINT_URL` | R2/MinIO | e.g. `https://<account>.r2.cloudflarestorage.com` |
-| `AWS_ACCESS_KEY_ID` | With S3 | |
-| `AWS_SECRET_ACCESS_KEY` | With S3 | |
-| `S3_REGION` | | `auto` for R2 |
-| `GEMINI_API_KEY` | Optional | Live analyze |
-| `GROQ_API_KEY` | Optional | Live analyze |
+## 2. Storage Bucket → backend
 
-### Networking
+1. Create **Bucket** on the canvas (region cannot be changed later).  
+2. On **backend** → **Variables** → **Add variable reference** → your bucket.  
+3. Choose the **AWS SDK** preset (or add manually):
 
-Generate a **public domain** (e.g. `https://dicom-backend-production.up.railway.app`).
+| Railway reference | Used as |
+|-------------------|---------|
+| `${{Bucket.BUCKET}}` | Bucket name for S3 API |
+| `${{Bucket.ENDPOINT}}` | `https://storage.railway.app` |
+| `${{Bucket.ACCESS_KEY_ID}}` | Access key |
+| `${{Bucket.SECRET_ACCESS_KEY}}` | Secret |
+| `${{Bucket.REGION}}` | `auto` |
 
-### Health check
+The backend accepts **any** of: `BUCKET`, `AWS_S3_BUCKET_NAME`, `S3_BUCKET` and matching `ENDPOINT` / `AWS_ENDPOINT_URL` / `S3_ENDPOINT_URL`.
 
-`GET /` should return `{"status":"healthy",...}`.
+## 3. Backend service
 
-`GET /api/analysis/status` → `storage.backend` should be `"s3"` when bucket is set.
+| Setting | Value |
+|---------|--------|
+| Source | GitHub repo `healthcare-dicom-pacs` |
+| Root Directory | **/** (repo root) |
+| Config | `webapp/backend/railway.toml` |
 
-## 3. Frontend
+**Suggested variables:**
 
-### Variables
+```env
+AUTO_BOOTSTRAP=true
+GEMINI_API_KEY=...
+GROQ_API_KEY=...
+```
 
-Pick **one** way to reach the API:
+`AUTO_BOOTSTRAP=true` (default) on first deploy:
 
-**Option A — Private networking (recommended)**
+1. Uploads bundled `showcase_data/` JSON/CSV into your bucket (if missing).  
+2. Seeds Postgres when there are no patients (dashboard demo data).
 
-On the `frontend` service:
+Generate a **public domain** for the API (optional if you only use frontend proxy).
+
+## 4. Frontend service
+
+| Setting | Value |
+|---------|--------|
+| Root Directory | **/** (repo root) |
+| Config | `webapp/frontend/railway.toml` |
+
+**Variables** (rename backend service to `backend` for this reference):
 
 ```env
 BACKEND_URL=http://${{backend.RAILWAY_PRIVATE_DOMAIN}}:${{backend.PORT}}
 ```
 
-Enable **Private Networking** for both services in Railway settings.
+Enable **Private Networking** on backend and frontend.
 
-**Option B — Public backend URL**
+Generate a **public domain** — this is the URL you share (`https://your-app.up.railway.app`).
 
-```env
-BACKEND_URL=https://<your-backend-public-domain>
-```
+## 5. Verify
 
-No port suffix when using HTTPS on the public URL.
+| Check | URL |
+|-------|-----|
+| Backend health | `https://<backend>/` |
+| Storage mode | `https://<backend>/api/analysis/status` → `storage.backend: "s3"`, `railway_bucket: true` |
+| Data | `https://<backend>/api/info` → `total_patients` ≥ 1 after bootstrap |
+| UI | `https://<frontend>/` → dashboard |
 
-### How it works
+## 6. Optional: upload local DICOM to bucket
 
-- The React app calls `/api` (relative URL).
-- Nginx substitutes `BACKEND_URL` at container start (`nginx.conf.template` + `docker-entrypoint.sh`).
-- You only need to share the **frontend** public URL with users.
-
-### Networking
-
-Generate a **public domain** for the frontend.
-
-## 4. Seed data (one-time)
-
-From your laptop (with local `data/` and showcase files):
+From your laptop (with `data/` and Railway bucket creds in `.env`):
 
 ```bash
-cd webapp
-cp .env.example .env
-# Fill S3_* and run:
-cd backend
+cd webapp/backend
 python upload_showcase_to_storage.py
 ```
 
-On Railway **backend** shell (or one-off job):
+## 7. Local Docker
 
-```bash
-python comprehensive_data_loader.py
-python sync_study_images.py
-```
-
-Verify: `GET https://<backend>/api/info` shows patients/studies.
-
-## 5. Local Docker (unchanged)
-
-```bash
-cd webapp
-docker-compose up -d
-```
-
-Frontend uses `BACKEND_URL=http://backend:8000` from compose. Dev server (`npm start`) uses `package.json` `proxy` to `localhost:8000`.
-
-## 6. Checklist
-
-- [ ] Postgres provisioned, `DATABASE_URL` on backend
-- [ ] S3/R2 bucket + credentials on backend
-- [ ] Backend public URL healthy
-- [ ] Frontend `BACKEND_URL` points at backend
-- [ ] Frontend public URL loads dashboard
-- [ ] Showcase uploaded + DB seeded
-- [ ] Upload & Analyze works (API keys set)
+Unchanged — see `webapp/README.md`. Compose build context remains `webapp/backend` (see that Dockerfile if you use a context-specific variant).
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| 502 on `/api` | Check `BACKEND_URL`; private networking + service name `backend` |
-| DB connection error | Use `postgresql://` or let app normalize `postgres://` |
-| Empty patients | Run loaders after S3 upload |
-| `storage.backend: local` | Set `S3_BUCKET` on backend |
-| CORS errors | Use frontend URL only (same-origin `/api`), not backend URL in browser for UI |
+| Build fails "COPY webapp/backend" | Root Directory must be repo root, not `webapp/backend` |
+| `storage.backend: local` | Link bucket variables to backend; redeploy |
+| S3 403 / signature errors | Ensure `ENDPOINT` is `https://storage.railway.app`; check bucket references |
+| Empty dashboard | Check deploy logs for bootstrap; set `AUTO_BOOTSTRAP=true` |
+| 502 on `/api` | Fix `BACKEND_URL` on frontend; enable private networking |
+| DB connection failed | Reference `DATABASE_URL` from Postgres service |
+
+See also [STORAGE.md](./STORAGE.md) and [railway.env.example](./railway.env.example).

@@ -1,0 +1,3 @@
+patient_id,patient_name,patient_age,patient_sex,study_date,study_time,study_description,series_description,modality,manufacturer,institution,image_size,bits_stored,pixel_spacing,file_path,file_name,file_size_mb
+COVID-19-AR-16406489,COVID-19-AR-16406489,037Y,M,20120126,175540,XR CHEST AP PORTABLE,AP,DX,Philips Medical Systems,Unknown,2330x2846,12,Unknown,/Users/aeishwary/DICOM-AI/data/raw/COVID-19/series_2/00000001.dcm,00000001.dcm,12.651605606079102
+COVID-19-AR-16406488,COVID-19-AR-16406488,067Y,M,20120115,213247,XR CHEST AP ONLY,Unknown,CR,FUJIFILM Corporation,Unknown,2140x1760,10,"[0.20, 0.20]",/Users/aeishwary/DICOM-AI/data/raw/COVID-19/series_1/00000001.dcm,00000001.dcm,7.186481475830078

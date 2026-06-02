@@ -1,0 +1,21 @@
+{
+  "total_samples": 2,
+  "manufacturer_distribution": {
+    "Philips Medical Systems": 1,
+    "FUJIFILM Corporation": 1
+  },
+  "model_distribution": {
+    "MobileDiagnost wDR": 1,
+    "Unknown": 1
+  },
+  "protocol_diversity": 2,
+  "site_imbalance": null,
+  "recommendations": [
+    "\ud83d\udfe1 MEDIUM RISK: Some manufacturer imbalance (>40%). Use stratified sampling in train/test split.",
+    "\u26a0\ufe0f  LOW MODEL DIVERSITY: <3 scanner models. Generalization will be limited.",
+    "\u26a0\ufe0f  LOW PROTOCOL DIVERSITY: <5 unique protocols. May not represent clinical variability."
+  ],
+  "risk_level": "high",
+  "bias_score": 0.5,
+  "unique_models": 2
+}

@@ -19,6 +19,9 @@ def storage_status() -> dict:
     return {
         "backend": "s3" if storage.use_s3 else "local",
         "bucket": storage.bucket if storage.use_s3 else None,
+        "endpoint": storage.endpoint_url if storage.use_s3 else None,
+        "railway_bucket": getattr(storage, "_is_railway", False),
+        "addressing_style": getattr(storage, "_addressing_style", None),
         "local_root": str(LOCAL_ROOT),
         "dicom_prefix": DICOM_PREFIX,
     }
@@ -147,8 +150,14 @@ def persist_analysis_from_upload(
             severity=diagnostic.get("severity"),
             confidence=diagnostic.get("confidence"),
             clinical_reasoning=diagnostic.get("clinical_reasoning"),
+            differential_diagnosis=diagnostic.get("differential_diagnosis"),
             recommendations=diagnostic.get("recommendations"),
             quantitative_features=diagnostic.get("quantitative_features", {}),
+            findings_json=diagnostic.get("findings_json"),
+            engine_version=diagnostic.get("findings_json", {})
+            .get("engine_version")
+            if isinstance(diagnostic.get("findings_json"), dict)
+            else None,
         )
     )
 

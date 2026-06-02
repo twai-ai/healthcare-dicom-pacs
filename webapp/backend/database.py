@@ -5,7 +5,9 @@ Database configuration and session management
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
+
+from railway_env import resolve_database_url
+
 
 def _normalize_database_url(url: str) -> str:
     """Railway and others often provide postgres://; SQLAlchemy needs postgresql://."""
@@ -14,13 +16,8 @@ def _normalize_database_url(url: str) -> str:
     return url
 
 
-# Database URL from environment variable
-DATABASE_URL = _normalize_database_url(
-    os.getenv(
-        "DATABASE_URL",
-        "postgresql://dicom_user:dicom_pass_2024@localhost:5432/dicom_ai",
-    )
-)
+# Database URL from environment variable (Railway: DATABASE_URL or DATABASE_PRIVATE_URL)
+DATABASE_URL = _normalize_database_url(resolve_database_url())
 
 # Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL)

@@ -1,0 +1,146 @@
+[
+  {
+    "patient_id": "COVID-19-AR-16406489",
+    "timestamp": "2025-11-11T17:32:45.623730",
+    "data_sources": [
+      "metadata",
+      "image_statistics",
+      "technical_parameters"
+    ],
+    "assumptions": [
+      "Portable study indicates possible acute illness or limited mobility",
+      "Symmetric bilateral findings typical for viral pneumonia including COVID-19"
+    ],
+    "findings": [
+      "Younger patient (37Y) - Generally better prognosis",
+      "Portable AP view - Suggests inpatient or emergency setting",
+      "Bilateral symmetry maintained - May suggest diffuse process"
+    ],
+    "differential_diagnosis": [
+      "COVID-19 pneumonia (viral)",
+      "Viral pneumonia (other)",
+      "Bacterial pneumonia (atypical)",
+      "Reactive airway disease",
+      "Diffuse alveolar disease (multiple etiologies)"
+    ],
+    "covid19_assessment": {
+      "classification": "MODERATE probability - Indeterminate features",
+      "score": 3,
+      "max_score": 5,
+      "features_present": [
+        "Bilateral symmetric pattern (typical)",
+        "Increased parenchymal heterogeneity"
+      ],
+      "confidence": "moderate",
+      "severity_estimate": "Mild-Moderate (limited involvement)"
+    },
+    "risk_factors": [
+      "Male sex - Slightly higher COVID-19 complication risk"
+    ],
+    "confidence_level": "moderate-high",
+    "recommendations": [
+      "\ud83d\udfe1 MODERATE Priority: COVID-19 testing recommended",
+      "Clinical correlation with symptoms (fever, cough, dyspnea)",
+      "Consider CT if diagnosis uncertain and clinically significant",
+      "Follow-up imaging in 2-3 days if symptoms persist or worsen",
+      "Consider PA/lateral views when patient condition allows for better evaluation"
+    ],
+    "dicom_file": "../data/raw/COVID-19/series_2/00000001.dcm",
+    "quantitative_features": {
+      "mean_intensity": 2262.0011925479325,
+      "median_intensity": 2530.0,
+      "std_intensity": 976.1974247334194,
+      "min_intensity": 0.0,
+      "max_intensity": 3672.0,
+      "intensity_range": 3672.0,
+      "coefficient_of_variation": 0.4315636207219787,
+      "p25": 1630.0,
+      "p75": 3075.0,
+      "p95": 3378.0,
+      "p05": 41.0,
+      "histogram_skewness": -0.8192550419777149,
+      "histogram_kurtosis": -0.291421364368063,
+      "image_entropy": 5.221761925856422,
+      "is_hounsfield": false,
+      "upper_mean": 1481.6881348211634,
+      "middle_mean": 2494.0194293781783,
+      "lower_mean": 2809.291749534898,
+      "left_half_mean": 2263.585049116447,
+      "right_half_mean": 2260.4173359794186,
+      "bilateral_asymmetry": 0.001400402947383177,
+      "peripheral_mean": 1929.392703862661,
+      "central_mean": 2006.0949466007557,
+      "lower_field_heterogeneity": false
+    }
+  },
+  {
+    "patient_id": "COVID-19-AR-16406488",
+    "timestamp": "2025-11-11T17:32:45.739041",
+    "data_sources": [
+      "metadata",
+      "image_statistics",
+      "technical_parameters"
+    ],
+    "assumptions": [
+      "Assumed increased susceptibility based on age >60",
+      "Portable study indicates possible acute illness or limited mobility"
+    ],
+    "findings": [
+      "Portable AP view - Suggests inpatient or emergency setting",
+      "Bilateral asymmetry detected (19.1%) - May indicate focal process"
+    ],
+    "differential_diagnosis": [
+      "Normal chest radiograph (no acute disease)",
+      "Bacterial pneumonia (community-acquired)",
+      "Heart failure / pulmonary edema",
+      "Chronic obstructive pulmonary disease (COPD) exacerbation"
+    ],
+    "covid19_assessment": {
+      "classification": "LOW probability - Atypical or negative",
+      "score": 1,
+      "max_score": 5,
+      "features_present": [
+        "Age >50 (risk factor)"
+      ],
+      "confidence": "low",
+      "severity_estimate": "N/A (low probability of COVID-19)"
+    },
+    "risk_factors": [
+      "Advanced age (67Y) - Higher COVID-19 severity risk",
+      "Male sex - Slightly higher COVID-19 complication risk"
+    ],
+    "confidence_level": "moderate",
+    "recommendations": [
+      "\ud83d\udfe2 LOW Priority: COVID-19 testing if high clinical suspicion",
+      "Clinical correlation recommended",
+      "Follow-up as clinically indicated"
+    ],
+    "dicom_file": "../data/raw/COVID-19/series_1/00000001.dcm",
+    "quantitative_features": {
+      "mean_intensity": 552.3823919392523,
+      "median_intensity": 579.0,
+      "std_intensity": 210.33625099340142,
+      "min_intensity": 0.0,
+      "max_intensity": 1011.0,
+      "intensity_range": 1011.0,
+      "coefficient_of_variation": 0.380780151689797,
+      "p25": 329.0,
+      "p75": 729.0,
+      "p95": 893.0,
+      "p05": 278.0,
+      "histogram_skewness": 0.022452642348746808,
+      "histogram_kurtosis": -1.204097192904612,
+      "image_entropy": 5.061491549637871,
+      "is_hounsfield": false,
+      "upper_mean": 666.9381709804921,
+      "middle_mean": 591.4346782162438,
+      "lower_mean": 398.98946396740513,
+      "left_half_mean": 605.01091971113,
+      "right_half_mean": 499.7538641673747,
+      "bilateral_asymmetry": 0.1905510694760358,
+      "peripheral_mean": 635.8157196969697,
+      "central_mean": 495.1250732795242,
+      "lower_field_heterogeneity": false
+    }
+  }
+]
