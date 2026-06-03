@@ -1,0 +1,3 @@
+study_instance_uid,patient_id,dicom_path,split,modality,manufacturer
+placeholder-16406489,COVID-19-AR-16406489,data/raw/COVID-19/COVID-19-AR-16406489.dcm,test,DX,Philips
+placeholder-16406488,COVID-19-AR-16406488,data/raw/COVID-19/COVID-19-AR-16406488.dcm,test,CR,FUJIFILM

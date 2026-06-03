@@ -17,6 +17,10 @@ import base64
 from PIL import Image
 import io
 from image_processor import ImageProcessor
+from repo_path import ensure_repo_on_sys_path
+
+ensure_repo_on_sys_path()
+from core.diagnostic_engine import DiagnosticEngine
 
 class DICOMAnalyzer:
     """Main analysis engine combining all analysis capabilities"""
@@ -50,6 +54,8 @@ class DICOMAnalyzer:
                 self.groq_client = None
         else:
             self.groq_client = None
+
+        self.diagnostic_engine = DiagnosticEngine()
     
     # ========================================================================
     # DICOM PROCESSING
@@ -124,63 +130,14 @@ class DICOMAnalyzer:
     # DATA-DRIVEN DIAGNOSTIC ANALYSIS
     # ========================================================================
     
-    def analyze_diagnostic(self, metadata: Dict, image_stats: Dict) -> Dict:
-        """Data-driven diagnostic assessment based on quantitative features"""
-        
-        covid_score = 0
-        reasoning = []
-        
-        # Analyze image statistics
-        mean_intensity = image_stats.get('mean', 0)
-        std_intensity = image_stats.get('std', 0)
-        
-        # Rule-based COVID-19 assessment
-        if mean_intensity > 800:
-            covid_score += 1
-            reasoning.append("Elevated mean intensity suggests increased opacity")
-        
-        if std_intensity > 400:
-            covid_score += 1
-            reasoning.append("High intensity variance indicates heterogeneous infiltrates")
-        
-        # Classify based on score
-        if covid_score <= 1:
-            probability = "LOW"
-            severity = "None or Minimal"
-            confidence = "HIGH"
-        elif covid_score == 2:
-            probability = "MODERATE"
-            severity = "Mild"
-            confidence = "MODERATE"
-        elif covid_score == 3:
-            probability = "MODERATE"
-            severity = "Moderate"
-            confidence = "MODERATE"
-        else:
-            probability = "HIGH"
-            severity = "Severe"
-            confidence = "HIGH"
-        
-        return {
-            'covid_score': covid_score,
-            'covid_probability': probability,
-            'severity': severity,
-            'confidence': confidence,
-            'clinical_reasoning': ' '.join(reasoning) if reasoning else 'Minimal COVID-19 features detected',
-            'recommendations': self._get_recommendations(covid_score),
-            'quantitative_features': image_stats
-        }
-    
-    def _get_recommendations(self, score: int) -> str:
-        """Generate clinical recommendations based on score"""
-        if score <= 1:
-            return "No immediate COVID-19 concerns. Clinical correlation advised."
-        elif score <= 2:
-            return "Consider COVID-19 testing. Monitor for symptom progression."
-        elif score == 3:
-            return "High suspicion for COVID-19. Immediate testing and clinical evaluation recommended."
-        else:
-            return "Very high suspicion for COVID-19. Urgent evaluation and potential hospitalization."
+    def analyze_diagnostic(self, dicom_file: Path, metadata: Optional[Dict] = None) -> Dict:
+        """Structured observations via unified DiagnosticEngine."""
+        findings = self.diagnostic_engine.analyze(dicom_file, metadata)
+        legacy = findings.legacy_diagnostic_dict()
+        legacy["differential_diagnosis"] = "; ".join(
+            findings.differential_considerations
+        )
+        return legacy
     
     # ========================================================================
     # AI ANALYSIS (GEMINI)
@@ -208,41 +165,22 @@ class DICOMAnalyzer:
             from PIL import Image as PILImage
             gemini_image = PILImage.open(buffer)
             
-            prompt = f"""You are an expert radiologist. Analyze this medical chest X-ray image.
+            prompt = f"""You are assisting with research evaluation of a chest X-ray (not providing a clinical diagnosis).
 
-Patient Information:
+Patient context:
 - Age: {metadata.get('patient_age', 'Unknown')} years
 - Sex: {metadata.get('patient_sex', 'Unknown')}
 - Modality: {metadata.get('modality', 'Unknown')}
-- View: {metadata.get('body_part', 'CHEST')}
 
-Provide a structured radiology report with:
+Describe OBSERVATIONS and AI INTERPRETATION separately:
 
 1. TECHNIQUE & QUALITY
-- Image quality
-- Positioning
-- Technical adequacy
+2. OBSERVED IMAGING CHARACTERISTICS (objective patterns only)
+3. AI INTERPRETATION (how patterns relate to literature-reported COVID-associated findings; use Indeterminate when uncertain)
+4. CONFIDENCE (low/moderate/high) with brief rationale
+5. SUGGESTED FOLLOW-UP (research/validation framing; not treatment orders)
 
-2. FINDINGS
-- Lungs (clarity, infiltrates, consolidations)
-- Heart (size, borders, cardiothoracic ratio)
-- Mediastinum (width, contours)
-- Pleura (effusions, pneumothorax)
-- Bones (ribs, clavicles, spine)
-
-3. COVID-19 ASSESSMENT
-- Classification (Positive/Negative/Indeterminate)
-- Severity (if applicable)
-- Key features
-
-4. IMPRESSION
-- Summary of findings
-
-5. RECOMMENDATIONS
-- Follow-up needed
-- Additional studies
-
-Use plain text only, no markdown symbols."""
+Do not state definitive diagnosis. Plain text only, no markdown."""
 
             response = self.gemini_model.generate_content([prompt, gemini_image])
             
@@ -266,28 +204,20 @@ Use plain text only, no markdown symbols."""
         
         try:
             # Groq text-based analysis with image statistics
-            prompt = f"""You are an expert radiologist analyzing a chest X-ray.
+            prompt = f"""Research evaluation assistant (not a clinical diagnosis).
 
-PATIENT INFORMATION:
-- Age: {metadata.get('patient_age', 'Unknown')} years
-- Sex: {metadata.get('patient_sex', 'Unknown')}
-- Modality: {metadata.get('modality', 'Unknown')}
-- View: {metadata.get('study_description', 'Chest X-ray')}
+Patient: age {metadata.get('patient_age', 'Unknown')}, sex {metadata.get('patient_sex', 'Unknown')}
+Modality: {metadata.get('modality', 'Unknown')}
+Image statistics — mean: {metadata.get('image_stats', {}).get('mean', 'N/A')}, std: {metadata.get('image_stats', {}).get('std', 'N/A')}
 
-IMAGE STATISTICS:
-- Mean Intensity: {metadata.get('image_stats', {}).get('mean', 'N/A')}
-- Std Deviation: {metadata.get('image_stats', {}).get('std', 'N/A')}
-- Intensity Range: {metadata.get('image_stats', {}).get('min', 0)} - {metadata.get('image_stats', {}).get('max', 0)}
-
-Based on these quantitative metrics and clinical context, provide a structured radiology report:
-
+Sections:
 1. TECHNIQUE & QUALITY
-2. FINDINGS (based on intensity patterns)
-3. COVID-19 ASSESSMENT
-4. IMPRESSION
-5. RECOMMENDATIONS
+2. OBSERVED CHARACTERISTICS (from statistics; uncertainty explicit)
+3. AI INTERPRETATION (literature-associated patterns only)
+4. CONFIDENCE
+5. SUGGESTED FOLLOW-UP
 
-Use plain text, no markdown symbols, no asterisks."""
+Plain text only. No definitive diagnosis."""
 
             response = self.groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
@@ -381,11 +311,9 @@ Use plain text, no markdown symbols, no asterisks."""
             
             # 3. Data-driven diagnostic analysis
             print("  🔬 Running diagnostic analysis...")
-            diagnostic = self.analyze_diagnostic(
-                metadata, 
-                metadata.get('image_stats', {})
-            )
+            diagnostic = self.analyze_diagnostic(dicom_file, metadata)
             results['diagnostic'] = diagnostic
+            results['structured_findings'] = diagnostic.get('findings_json')
             
             # 4. Convert to image for AI
             print("  🖼️  Converting to image for AI...")

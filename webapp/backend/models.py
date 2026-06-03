@@ -107,11 +107,56 @@ class DiagnosticAnalysis(Base):
     clinical_reasoning = Column(Text)
     differential_diagnosis = Column(Text)
     recommendations = Column(Text)
+    findings_json = Column(JSONB)
+    engine_version = Column(String(32))
     created_at = Column(DateTime, server_default=func.now())
     
     # Relationships
     patient = relationship("Patient", back_populates="diagnostic_analyses")
     study = relationship("Study", back_populates="diagnostic_analyses")
+
+
+class EvaluationDataset(Base):
+    __tablename__ = "evaluation_datasets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(String(128), unique=True, nullable=False, index=True)
+    name = Column(String(255))
+    version = Column(String(32))
+    source = Column(String(64))
+    task = Column(String(128))
+    stats_json = Column(JSONB)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class GroundTruthLabel(Base):
+    __tablename__ = "ground_truth_labels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(String(128), index=True, nullable=False)
+    study_instance_uid = Column(String(255), index=True, nullable=False)
+    patient_id = Column(String(255))
+    pattern_score_gt = Column(Integer)
+    pattern_label_gt = Column(String(64))
+    severity_gt = Column(String(128))
+    covid_label = Column(String(64))
+    reader_id = Column(String(128))
+    source = Column(String(64))
+    provenance_json = Column(JSONB)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class EvaluationRun(Base):
+    __tablename__ = "evaluation_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(String(64), unique=True, nullable=False, index=True)
+    dataset_id = Column(String(128), index=True)
+    engine_version = Column(String(32))
+    output_path = Column(Text)
+    metrics_json = Column(JSONB)
+    git_commit = Column(String(64))
+    created_at = Column(DateTime, server_default=func.now())
 
 class ProtocolAnalysis(Base):
     __tablename__ = "protocol_analysis"

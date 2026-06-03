@@ -11,11 +11,17 @@ from pathlib import Path
 from datetime import datetime, date
 import json
 
-sys.path.append('/app')
+sys.path.insert(0, "/app")
+from repo_path import ensure_repo_on_sys_path
+
+ensure_repo_on_sys_path()
 
 from database import SessionLocal
 import models
 from image_processor import ImageProcessor
+from core.diagnostic_engine import DiagnosticEngine
+
+_diagnostic_engine = DiagnosticEngine()
 
 # Find all DICOM files
 DICOM_DIR = Path("/data/raw")
@@ -90,33 +96,6 @@ def analyze_dicom_file(dcm_path):
     except Exception as e:
         print(f"  ✗ Error analyzing {dcm_path.name}: {e}")
         return None
-
-def calculate_covid_score(image_stats):
-    """Data-driven COVID-19 scoring"""
-    score = 0
-    
-    mean = image_stats.get('mean', 0)
-    std = image_stats.get('std', 0)
-    
-    # Rule-based scoring
-    if mean > 800:
-        score += 1
-    if std > 400:
-        score += 1
-    if mean > 1500:
-        score += 1
-    
-    # Classify
-    if score <= 1:
-        return 1, "LOW probability - Atypical or negative", "None or Minimal", "HIGH"
-    elif score == 2:
-        return 2, "LOW-MODERATE probability", "Mild", "MODERATE"
-    elif score == 3:
-        return 3, "MODERATE probability - Indeterminate features", "Mild-Moderate", "MODERATE"
-    elif score == 4:
-        return 4, "HIGH probability", "Moderate-Severe", "HIGH"
-    else:
-        return 5, "VERY HIGH probability", "Severe", "HIGH"
 
 def main():
     db = SessionLocal()
@@ -260,21 +239,25 @@ def main():
         
         # Add diagnostic analysis
         if stats:
-            covid_score, probability, severity, confidence = calculate_covid_score(stats)
-            
+            findings = _diagnostic_engine.analyze(dcm_file)
+            legacy = findings.legacy_diagnostic_dict()
             diagnostic = models.DiagnosticAnalysis(
                 patient_id=patient_id,
                 study_id=study.id,
-                covid_score=covid_score,
-                covid_probability=probability,
-                severity=severity,
-                confidence=confidence,
-                clinical_reasoning=f"Automated quantitative analysis: Score {covid_score}/5",
-                recommendations=f"{'COVID-19 testing recommended' if covid_score >= 3 else 'Clinical correlation advised'}",
-                quantitative_features=stats
+                covid_score=legacy.get("covid_score"),
+                covid_probability=legacy.get("covid_probability"),
+                severity=legacy.get("severity"),
+                confidence=legacy.get("confidence"),
+                clinical_reasoning=legacy.get("clinical_reasoning"),
+                differential_diagnosis="; ".join(findings.differential_considerations),
+                recommendations=legacy.get("recommendations"),
+                quantitative_features=legacy.get("quantitative_features", stats),
+                findings_json=legacy.get("findings_json"),
+                engine_version=findings.engine_version,
             )
             db.add(diagnostic)
-            print(f"  ✓ COVID-19 score: {covid_score}/5 ({probability})")
+            obs = findings.observations
+            print(f"  ✓ Pattern score: {obs.pattern_score}/5 ({obs.pattern_label})")
     
     db.commit()
     print("\n" + "="*70)
