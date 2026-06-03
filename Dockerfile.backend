@@ -1,5 +1,4 @@
-# Local Docker Compose uses repo root context — see webapp/docker-compose.yml
-# Railway: use webapp/Dockerfile.backend with Root Directory = webapp
+# Build context: repository root (Railway Root Directory = /)
 FROM python:3.9-slim
 
 WORKDIR /app

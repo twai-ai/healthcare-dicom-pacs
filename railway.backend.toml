@@ -1,4 +1,4 @@
-# Railway backend: Root Directory = webapp (recommended) OR repo root with Dockerfile.backend
+# Backend service — Root Directory: / (repo root)
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile.backend"
@@ -6,5 +6,5 @@ dockerfilePath = "Dockerfile.backend"
 [deploy]
 startCommand = "/app/start.sh"
 healthcheckPath = "/"
-healthcheckTimeout = 120
+healthcheckTimeout = 180
 restartPolicyType = "on_failure"

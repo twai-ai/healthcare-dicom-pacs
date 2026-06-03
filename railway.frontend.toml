@@ -1,0 +1,9 @@
+# Frontend service — Root Directory: / (repo root)
+[build]
+builder = "dockerfile"
+dockerfilePath = "webapp/frontend/Dockerfile"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 180
+restartPolicyType = "on_failure"

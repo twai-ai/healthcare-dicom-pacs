@@ -1,0 +1,3 @@
+study_instance_uid,patient_id,pattern_score_gt,pattern_label_gt,severity_gt,covid_label,reader_id,source
+placeholder-16406489,COVID-19-AR-16406489,3,MODERATE_PATTERN_SIMILARITY,Mild-Moderate,indeterminate,consensus_v1,literature_alignment
+placeholder-16406488,COVID-19-AR-16406488,1,LOW_PATTERN_SIMILARITY,Minimal,negative,consensus_v1,literature_alignment

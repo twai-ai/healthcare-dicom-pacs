@@ -1,7 +1,7 @@
-# Railway: set service "Root Directory" to repository root
+# Railway frontend: Root Directory = webapp (recommended) OR repo root
 [build]
 builder = "dockerfile"
-dockerfilePath = "webapp/frontend/Dockerfile"
+dockerfilePath = "frontend/Dockerfile"
 
 [deploy]
 healthcheckPath = "/"

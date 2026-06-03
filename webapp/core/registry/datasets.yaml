@@ -1,0 +1,16 @@
+# Dataset registry — versioned manifests for reproducible evaluation
+# Part of ATRISI DICOM-AI evaluation framework
+
+datasets:
+  - id: covid19_tcia_showcase
+    name: "TCIA COVID-19 Chest X-Ray (showcase)"
+    version: "1.0.0"
+    source: tcia
+    collection_id: COVID-19-AR
+    task: covid19_cxr_screening
+    manifest: manifests/covid19_tcia_showcase.csv
+    ground_truth: ground_truth/covid19_tcia_showcase_labels.csv
+    modalities: [DX, CR]
+    description: >
+      De-identified TCIA COVID-19-AR collection (105 patients on TCIA).
+      Ingest via download_covid19_ar.py and process_all_covid_data.py (target 50–100 cases).

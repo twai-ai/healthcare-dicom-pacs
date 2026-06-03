@@ -1,5 +1,4 @@
-# Local Docker Compose uses repo root context — see webapp/docker-compose.yml
-# Railway: use webapp/Dockerfile.backend with Root Directory = webapp
+# Build context: webapp/ (Railway Root Directory = webapp)
 FROM python:3.9-slim
 
 WORKDIR /app
@@ -9,12 +8,12 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-COPY webapp/backend/requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY core /workspace/core
-COPY webapp/backend /app
-COPY webapp/backend/showcase_data /showcase_data
+COPY backend /app
+COPY backend/showcase_data /showcase_data
 
 ENV PYTHONPATH=/app:/workspace
 ENV SHOWCASE_DATA_DIR=/showcase_data
